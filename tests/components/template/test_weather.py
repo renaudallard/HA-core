@@ -107,6 +107,28 @@ async def setup_weather(
 
 
 @pytest.mark.parametrize(
+    "style", [ConfigurationStyle.MODERN, ConfigurationStyle.TRIGGER]
+)
+@pytest.mark.parametrize(
+    "config",
+    [
+        {
+            "condition": "{{ x - 2 }}",
+            "temperature": "{{ 20 }}",
+            "humidity": "{{ 25 }}",
+        },
+    ],
+)
+@pytest.mark.usefixtures("setup_weather")
+async def test_template_state_exception(hass: HomeAssistant) -> None:
+    """Test condition produces exception."""
+    await async_trigger(hass, "sensor.condition", "anything")
+    state = hass.states.get(TEST_WEATHER.entity_id)
+    assert state is not None
+    assert state.state == STATE_UNAVAILABLE
+
+
+@pytest.mark.parametrize(
     ("style", "config"),
     [
         (
@@ -239,6 +261,11 @@ async def test_template_state_text(
         assert state.attributes.get(v_attr) == value or (
             entity_id == "sensor.uv_index" and style == ConfigurationStyle.LEGACY
         )
+
+    await async_trigger(hass, "sensor.condition", "None")
+    state = hass.states.get(TEST_WEATHER.entity_id)
+    assert state is not None
+    assert state.state == STATE_UNKNOWN
 
 
 @pytest.mark.parametrize(
@@ -469,7 +496,7 @@ async def test_forecasts_invalid(
         return_response=True,
     )
     assert response == expected
-    assert "Only valid keys in Forecast are allowed" in caplog.text
+    assert "expected valid forecast keys, unallowed keys:" in caplog.text
 
     # Test twice daily missing is_daytime
     hass.states.async_set(
@@ -521,7 +548,7 @@ async def test_forecasts_invalid(
         return_response=True,
     )
     assert response == expected
-    assert "`datetime` is required in forecasts" in caplog.text
+    assert "`datetime` is missing in forecast" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -612,7 +639,7 @@ async def test_forecast_format_error(
         blocking=True,
         return_response=True,
     )
-    assert "Forecast in list is not a dict, see Weather documentation" in caplog.text
+    assert "expected a list of forecast dictionaries, got" in caplog.text
     await hass.services.async_call(
         WEATHER_DOMAIN,
         SERVICE_GET_FORECASTS,
@@ -620,7 +647,7 @@ async def test_forecast_format_error(
         blocking=True,
         return_response=True,
     )
-    assert "Forecasts is not a list, see Weather documentation" in caplog.text
+    assert "expected a list, " in caplog.text
 
 
 SAVED_EXTRA_DATA = {

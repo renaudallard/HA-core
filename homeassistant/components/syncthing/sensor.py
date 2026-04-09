@@ -6,7 +6,6 @@ from typing import Any
 import aiosyncthing
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
@@ -14,7 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 
-from . import SyncthingClient
+from . import SyncthingClient, SyncthingConfigEntry
 from .const import (
     DOMAIN,
     FOLDER_PAUSED_RECEIVED,
@@ -28,11 +27,11 @@ from .const import (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: SyncthingConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up the Syncthing sensors."""
-    syncthing = hass.data[DOMAIN][config_entry.entry_id]
+    syncthing = config_entry.runtime_data
 
     try:
         config = await syncthing.system.config()
@@ -106,7 +105,7 @@ class FolderSensor(SensorEntity):
         self._state: dict[str, Any] | None = None
         self._unsub_timer: CALLBACK_TYPE | None = None
 
-        self._short_server_id = server_id.split("-")[0]
+        self._short_server_id = server_id.split("-", maxsplit=1)[0]
         self._attr_name = f"{self._short_server_id} {folder_id} {folder_label}"
         self._attr_unique_id = f"{self._short_server_id}-{folder_id}"
         self._attr_device_info = DeviceInfo(
